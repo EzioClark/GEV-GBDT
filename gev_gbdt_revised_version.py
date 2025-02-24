@@ -114,21 +114,30 @@ def GEV_Loss(y_pred, y_true, tau):
     y = y_true.get_label()
     x = y_pred
     t = tau
-    grad = (((1-y)*np.exp(-(t*x+1)**(-1/t)))*((t*x+1)**(-1/t-1)))/(1-np.exp(-(t*x+1)**(-1/t))) - y*((t*x+1)**(-1/t-1))
-    hess = (1/t+1)*t*y*((t*x+1)**(-1/t-2)) + (1-y)*( (np.exp(-(t*x+1)**(-1/t))*((t*x+1)**(-2/t-2)))/(1-np.exp(-(t*x+1)**(-1/t)))+
-                                                  (np.exp(-2*((t*x+1)**(-1/t)))*((t*x+1)**(-2/t-2)))/((1-np.exp(-(t*x+1)**(-1/t)))**2)-
-                                                ((1/t+1)*t*np.exp(-(t*x+1)**(-1/t))*((t*x+1)**(-1/t-2)))/(1-np.exp(-(t*x+1)**(-1/t))) )
-    # grad : first-order partial derivative of y_pred
-    # hess : second - order partial derivative of y_pred
+    
+    if np.any(1 + t * x <= 0):
+        raise ValueError("Invalid computation: 1 + tau*x must be positive for GEV.")
+
+    h_x = (1 + t * x) ** (-1/t)
+    exp_neg_h_x = np.exp(-h_x) 
+
+    grad = (((1 - y) * exp_neg_h_x * (h_x * (1 + t*x) ** -1)) / (1 - exp_neg_h_x)) - y * h_x * (1 + t*x) ** -1
+
+    hess = ((1/t + 1) * t * y * (h_x * (1 + t*x) ** -2)) + \
+           (1 - y) * ((exp_neg_h_x * (h_x * (1 + t*x) ** -2)) / (1 - exp_neg_h_x) + 
+                      (exp_neg_h_x**2 * h_x * (1 + t*x) ** -2) / ((1 - exp_neg_h_x) ** 2) - 
+                      ((1/t + 1) * t * exp_neg_h_x * h_x * (1 + t*x) ** -2) / (1 - exp_neg_h_x))
+
     return grad, hess
 
 def Gumbel(y_pred, y_true):
-    # When tau is set to 0, the GEV function follows gumbel distribution
     y = y_true.get_label()
     x = y_pred
-    grad = (np.exp(x)*(np.exp(np.exp(x))*y-1))/(np.exp(np.exp(x))-1)
-    hess = np.exp(x)*y - ((np.exp(x-np.exp(x))*(1-np.exp(x)))/(1-np.exp(-np.exp(x)))-
-                          (np.exp(2*x-2*np.exp(x)))/((1-np.exp(-np.exp(x)))**2))*(1-y)
+
+    exp_x = np.exp(-np.exp(-x))
+
+    grad = (exp_x * (y - exp_x)) / (1 - exp_x)
+    hess = exp_x * (y - exp_x) - ((exp_x**2 * (1 - exp_x)) / ((1 - exp_x) ** 2)) * (1 - y)
 
     return grad, hess
 
